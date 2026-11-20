@@ -1,8 +1,10 @@
 from extension.board_utils import list_legal_moves_for, copy_piece_move
+import time
 
 ''' notes to self:
     
 print(piece.position) seems to return row-column (0-1, 3-4 etc)—They're NOT pairs, but should be able to use str()
+https://chessprogramming.org/Iterative_Deepening  (for later)
 
 Maybe come back to this if you do PST eval: https://www.talkchess.com/forum/viewtopic.php?t=50840 [1]
 
@@ -35,7 +37,6 @@ def check_board(board, player) -> int:
         [-5, -5, -20, -5, -5],
         [0, -2, -5, -2, 0],
         [5, 0, -5, 0, 5]
-
     ]
 
     blocked = [0, 0, 0, 0, 0]
@@ -117,7 +118,10 @@ def return_opponent_moves(board, agent_player):
     return (p, opponent_moves)
 
 
-def minimax(board, depth, is_maximising: bool, agent_player, alpha=-float("inf"), beta=float("inf")):
+def minimax(board, depth, is_maximising: bool, agent_player, b_time: int, alpha=-float("inf"), beta=float("inf")):
+    if time.time() >= b_time:
+        return None
+
     if depth == 0 or game_finished(board, agent_player):
         return check_board(board, agent_player)
 
@@ -130,14 +134,15 @@ def minimax(board, depth, is_maximising: bool, agent_player, alpha=-float("inf")
 
             if tmp_board is not None:
                 next_eval = minimax(tmp_board, depth - 1,
-                                    False, agent_player, alpha, beta)
+                                    False, agent_player, b_time, alpha, beta)
+                if next_eval is None:
+                    return None
                 max_eval = max(max_eval, next_eval)
                 alpha = max(alpha, next_eval)
                 if beta <= alpha:
                     break
             else:
                 continue
-
         return max_eval
 
     else:
@@ -149,21 +154,67 @@ def minimax(board, depth, is_maximising: bool, agent_player, alpha=-float("inf")
 
             if tmp_board is not None:
                 next_eval = minimax(tmp_board, depth - 1,
-                                    True, agent_player, alpha, beta)
+                                    True, agent_player, b_time, alpha, beta)
+                if next_eval is None:
+                    return None
                 min_eval = min(min_eval, next_eval)
                 beta = min(beta, next_eval)
                 if beta <= alpha:
                     break
             else:
                 continue
-
         return min_eval
+
+
+def ids_helper(board, player, max_depth: int, b_time: float):
+    poss_moves = list_legal_moves_for(board, player)
+    if not poss_moves:
+        return None, None
+
+    best_piece, best_move = poss_moves[0]
+
+    for curr_depth in range(max_depth):
+        if time.time() >= b_time:
+            break
+
+        d_best_score = -float("inf")
+        d_best_piece, d_best_move = None, None
+        timed_out = False
+
+        for piece, move in poss_moves:
+            testing_board = test_move(board, piece, move)
+            if testing_board is None:
+                continue
+
+            score = minimax(testing_board, curr_depth, False,
+                            player, b_time, alpha=d_best_score)
+
+            if score is None:
+                timed_out = True
+                break
+
+            if score > d_best_score:
+                d_best_score, d_best_piece, d_best_move = score, piece, move
+
+        if timed_out:
+            break
+
+        if d_best_piece is not None:
+            best_piece, best_move = d_best_piece, d_best_move
+
+    return best_piece, best_move
 
 
 def agent(board, player, var):
     # print(f"Ply: {var[0]}")
     # print(f"Agent nmae: {player.name}")  # REMOVE BEFORE SUBMISSION???
     # print(f"Opponent is: {return_opponent_moves(board, player)[0].name}")
+
+    b_time = time.time() + 10.0
+    return ids_helper(board, player, max_depth=6, b_time=b_time)
+
+
+''' MOVED ALL THIS FROM agent() TO ids_helper()
 
     best_score = -float("inf")
     best_piece, best_move = None, None
@@ -186,3 +237,4 @@ def agent(board, player, var):
 
     else:
         return None, None
+'''
