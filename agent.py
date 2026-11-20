@@ -122,7 +122,7 @@ def minimax(board, depth, is_maximising: bool, agent_player, b_time: int, alpha=
     if time.time() >= b_time:
         return None
 
-    if depth == 0 or game_finished(board, agent_player):
+    if depth == 0:
         return check_board(board, agent_player)
 
     if is_maximising:
@@ -210,7 +210,7 @@ def agent(board, player, var):
     # print(f"Agent nmae: {player.name}")  # REMOVE BEFORE SUBMISSION???
     # print(f"Opponent is: {return_opponent_moves(board, player)[0].name}")
 
-    b_time = time.time() + 10.0
+    b_time = time.time() + 10
     return ids_helper(board, player, max_depth=6, b_time=b_time)
 
 
