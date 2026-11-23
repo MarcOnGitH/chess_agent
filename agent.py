@@ -2,7 +2,7 @@ from extension.board_utils import list_legal_moves_for, copy_piece_move
 import time
 
 ''' notes to self:
-    
+
 print(piece.position) seems to return row-column (0-1, 3-4 etc)—They're NOT pairs, but should be able to use str()
 https://chessprogramming.org/Iterative_Deepening  (for later)
 
@@ -99,6 +99,12 @@ def test_move(board, piece, move_opt):
     return testing_board
 
 
+'''def game_finished(board, player) -> bool:
+    moves_left = list_legal_moves_for(board, player)
+    return True if not moves_left else False
+'''
+
+
 def get_possible_moves(board, player) -> list:
     poss_moves = list_legal_moves_for(board, player)
     return poss_moves
@@ -121,8 +127,11 @@ def minimax(board, depth, is_maximising: bool, agent_player, b_time: int, alpha=
         return check_board(board, agent_player)
 
     if is_maximising:
-        max_eval = -float("inf")
         poss_moves = get_possible_moves(board, agent_player)
+        if not poss_moves:
+            return (-100000-depth)
+
+        max_eval = -float("inf")
         for moves in poss_moves:
             piece, move = moves
             tmp_board = test_move(board, piece, move)
@@ -141,8 +150,11 @@ def minimax(board, depth, is_maximising: bool, agent_player, b_time: int, alpha=
         return max_eval
 
     else:
-        min_eval = float("inf")
         poss_moves = return_opponent_moves(board, agent_player)[1]
+        if not poss_moves:
+            return (+100000 + depth)
+
+        min_eval = float("inf")
         for moves in poss_moves:
             piece, move = moves
             tmp_board = test_move(board, piece, move)
@@ -205,7 +217,7 @@ def agent(board, player, var):
     # print(f"Agent nmae: {player.name}")  # REMOVE BEFORE SUBMISSION???
     # print(f"Opponent is: {return_opponent_moves(board, player)[0].name}")
 
-    b_time = time.time() + 10
+    b_time = time.time() + 10.0
     return ids_helper(board, player, max_depth=6, b_time=b_time)
 
 
