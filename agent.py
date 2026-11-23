@@ -99,11 +99,6 @@ def test_move(board, piece, move_opt):
     return testing_board
 
 
-def game_finished(board, player) -> bool:
-    moves_left = list_legal_moves_for(board, player)
-    return True if not moves_left else False
-
-
 def get_possible_moves(board, player) -> list:
     poss_moves = list_legal_moves_for(board, player)
     return poss_moves
