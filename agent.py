@@ -119,6 +119,20 @@ def return_opponent_moves(board, agent_player):
     return (p, opponent_moves)
 
 
+#
+def order_mvs(poss_moves: list) -> list:
+    captures = []
+    others = []
+
+    for moves in poss_moves:
+        move = moves[1]
+        if move.captures:
+            captures.append(moves)
+        else:
+            others.append(moves)
+    return captures + others
+
+
 def minimax(board, depth, is_maximising: bool, agent_player, b_time: int, alpha=-float("inf"), beta=float("inf")):
     if time.time() >= b_time:
         return None
@@ -131,6 +145,7 @@ def minimax(board, depth, is_maximising: bool, agent_player, b_time: int, alpha=
         if not poss_moves:
             return (-100000-depth)
 
+        poss_moves = order_mvs(poss_moves)
         max_eval = -float("inf")
         for moves in poss_moves:
             piece, move = moves
@@ -154,6 +169,7 @@ def minimax(board, depth, is_maximising: bool, agent_player, b_time: int, alpha=
         if not poss_moves:
             return (+100000 + depth)
 
+        poss_moves = order_mvs(poss_moves)
         min_eval = float("inf")
         for moves in poss_moves:
             piece, move = moves
@@ -178,6 +194,7 @@ def ids_helper(board, player, max_depth: int, b_time: float):
     if not poss_moves:
         return None, None
 
+    poss_moves = order_mvs(poss_moves)
     best_piece, best_move = poss_moves[0]
 
     for curr_depth in range(max_depth):
@@ -208,6 +225,10 @@ def ids_helper(board, player, max_depth: int, b_time: float):
 
         if d_best_piece is not None:
             best_piece, best_move = d_best_piece, d_best_move
+            best_moves = (best_piece, best_move)
+            if best_moves in poss_moves:
+                poss_moves.remove(best_moves)
+                poss_moves.insert(0, best_moves)
 
     return best_piece, best_move
 
@@ -217,7 +238,7 @@ def agent(board, player, var):
     # print(f"Agent nmae: {player.name}")  # REMOVE BEFORE SUBMISSION???
     # print(f"Opponent is: {return_opponent_moves(board, player)[0].name}")
 
-    b_time = time.time() + 10.0
+    b_time = time.time() + 8
     return ids_helper(board, player, max_depth=6, b_time=b_time)
 
 
