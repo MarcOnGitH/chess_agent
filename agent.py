@@ -189,6 +189,10 @@ def minimax(board, depth, is_maximising: bool, agent_player, b_time: int, alpha=
         return min_eval
 
 
+def is_winning_checkmate(score: int) -> bool:
+    return score >= 100000
+
+
 def ids_helper(board, player, max_depth: int, b_time: float):
     poss_moves = list_legal_moves_for(board, player)
     if not poss_moves:
@@ -229,6 +233,9 @@ def ids_helper(board, player, max_depth: int, b_time: float):
             if best_moves in poss_moves:
                 poss_moves.remove(best_moves)
                 poss_moves.insert(0, best_moves)
+
+            if is_winning_checkmate(d_best_score):
+                break
 
     return best_piece, best_move
 
