@@ -159,6 +159,25 @@ def order_mvs(board, poss_moves: list) -> list:
     return sorted_captures + others
 
 
+# for q_s, standard pat forms a basecase? need to verify this
+# based of the yt videos algorithm — parameter may need refining
+def quiescence(board, is_maximising: bool, agent_player, b_time: float, alpha: float, beta: float, q_depth: int = 4):
+    if time.time() >= b_time:
+        return None
+
+    stand_pat = check_board(board, agent_player)
+    if q_depth == 0:
+        return stand_pat
+
+    if is_maximising:
+        if stand_pat >= beta:
+            return stand_pat
+        if stand_pat >= alpha:
+            alpha = stand_pat
+
+        # continue...
+
+
 def minimax(board, depth, is_maximising: bool, agent_player, b_time: int, alpha=-float("inf"), beta=float("inf")):
     if time.time() >= b_time:
         return None
