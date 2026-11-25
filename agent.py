@@ -8,73 +8,86 @@ https://chessprogramming.org/Iterative_Deepening  (for later)
 
 Maybe come back to this if you do PST eval: https://www.talkchess.com/forum/viewtopic.php?t=50840 [1]
 
+a "smarter" move ordering algorithm: https://chessprogramming.org/MVV-LVA
+https://chessprogramming.org/Quiescence_Search
+
 '''
+
+weights = {
+    "Pawn_Q": 90,
+    "Pawn": 10,
+    "Knight": 30,
+    "Bishop": 30,
+    "Right": 75,
+    "Queen": 90,
+    "King": 1000,
+}
+
+# ++centre control but --corners (adapted from Tomasz Michniewksi [1] for Kn/Q/B
+flatten = [0, 0, 0, 0, 0]
+centre_pst = [
+    [-5, -4, -3, -4, -5],
+    [-4, 0, 5, 0, -4],
+    [-3, 5, 10, 5, -3],
+    [-4, 0, 5, 0, -4],
+    [-5, -4, -3, -4, -5]
+]
+
+king_pst = [
+    flatten,
+    [-2, -4, -6, -4, -2],
+    [-5, -5, -20, -5, -5],
+    [-2, -4, -6, -4, -2],
+    flatten
+]
+
+w_pawn_pst = [
+    [5, 5, 5, 5, 5],
+    [3, 3, 4, 3, 3],
+    [1, 1, 2, 1, 1],
+    flatten,  # start
+    flatten
+]
+
+b_pawn_pst = [
+    flatten,
+    flatten,  # start
+    [1, 1, 1, 1, 1],
+    [2, 2, 3, 2, 2],
+    [5, 5, 5, 5, 5]
+]
+
+game_history = set()
+
+
+def get_pos_key(board) -> tuple:
+    pieces = []
+    for p in board.get_pieces():
+        pieces.append((type(p).__name__, p.player.name,
+                      p.position.x, p.position.y))
+    pieces.sort()
+    return tuple(pieces)
 
 
 def check_board(board, player) -> int:
-    weights = {
-        "Pawn_Q": 90,
-        "Pawn": 10,
-        "Knight": 30,
-        "Bishop": 30,
-        "Right": 50,
-        "Queen": 90,
-        "King": 1000,
-    }
-
-    # ++centre control but --corners (adapted from Tomasz Michniewksi [1] for Kn/Q/B
-    centre_pst = [
-        [-5, -4, -3, -4, -5],
-        [-4, 0, 5, 0, -4],
-        [-3, 5, 10, 5, -3],
-        [-4, 0, 5, 0, -4],
-        [-5, -4, -3, -4, -5]
-    ]
-
-    king_pst = [
-        [5, 0, -5, 0, 5],
-        [0, -2, -5, -2, 0],
-        [-5, -5, -20, -5, -5],
-        [0, -2, -5, -2, 0],
-        [5, 0, -5, 0, 5]
-    ]
-
-    blocked = [0, 0, 0, 0, 0]
-    w_pawn_pst = [
-        [5, 5, 5, 5, 5],
-        [3, 3, 4, 3, 3],
-        [1, 1, 2, 1, 1],
-        blocked,  # start
-        blocked
-    ]
-
-    b_pawn_pst = [
-        blocked,
-        blocked,  # start
-        [1, 1, 1, 1, 1],
-        [2, 2, 3, 2, 2],
-        [5, 5, 5, 5, 5]
-    ]
-
     net_score = 0
     for p in board.players:
         for piece in list(board.get_player_pieces(p)):
             piece_name = type(piece).__name__
 
-            r_s, c_s = str(piece.position).split("-")
-            r, c = int(r_s), int(c_s)
+            row, col = piece.position.y, piece.position.x
 
             # THIS LOGIC AND THE LIST[LIST]s ABOVE CAN GO INTO A HELPER FUNCTION!
             pos_bonus = 0
             if piece_name in ["Knight", "Queen", "Bishop", "Right", "Pawn_Q"]:
-                pos_bonus = centre_pst[r][c]
+                pos_bonus = centre_pst[row][col]
             elif piece_name == "King":
-                pos_bonus = king_pst[r][c]
+                pos_bonus = king_pst[row][col]
             elif piece_name == "Pawn":
                 if p.name == "white":
-                    pos_bonus = w_pawn_pst[r][c]
+                    pos_bonus = w_pawn_pst[row][col]
                 else:
-                    pos_bonus = b_pawn_pst[r][c]
+                    pos_bonus = b_pawn_pst[row][col]
 
             piece_wt = weights.get(piece_name)
             if p.name == player.name:
@@ -99,12 +112,6 @@ def test_move(board, piece, move_opt):
     return testing_board
 
 
-'''def game_finished(board, player) -> bool:
-    moves_left = list_legal_moves_for(board, player)
-    return True if not moves_left else False
-'''
-
-
 def get_possible_moves(board, player) -> list:
     poss_moves = list_legal_moves_for(board, player)
     return poss_moves
@@ -120,22 +127,44 @@ def return_opponent_moves(board, agent_player):
 
 
 #
-def order_mvs(poss_moves: list) -> list:
+def get_score(capture):
+    return capture[0]
+
+
+def order_mvs(board, poss_moves: list) -> list:
     captures = []
     others = []
+    pos_to_val = {}
 
-    for moves in poss_moves:
-        move = moves[1]
+    for p in board.get_pieces():
+        pos = (p.position.x, p.position.y)
+        val = weights.get(type(p).__name__)
+        pos_to_val[pos] = val
+
+    for piece, move in poss_moves:
         if move.captures:
-            captures.append(moves)
+            victim_val = pos_to_val.get((move.position.x, move.position.y), 10)
+            attacker_val = weights.get(type(piece).__name__)
+            score = (victim_val * 10) - attacker_val
+            captures.append((score, (piece, move)))
         else:
-            others.append(moves)
-    return captures + others
+            others.append((piece, move))
+    # needs sorting and unpack
+
+    sorted_captures = []
+    captures.sort(key=get_score, reverse=True)
+    for score, moves in captures:
+        sorted_captures.append(moves)
+
+    return sorted_captures + others
 
 
 def minimax(board, depth, is_maximising: bool, agent_player, b_time: int, alpha=-float("inf"), beta=float("inf")):
     if time.time() >= b_time:
         return None
+
+    if get_pos_key(board) in game_history:
+        return 0  # avd
 
     if depth == 0:
         return check_board(board, agent_player)
@@ -145,7 +174,7 @@ def minimax(board, depth, is_maximising: bool, agent_player, b_time: int, alpha=
         if not poss_moves:
             return (-100000-depth)
 
-        poss_moves = order_mvs(poss_moves)
+        poss_moves = order_mvs(board, poss_moves)
         max_eval = -float("inf")
         for moves in poss_moves:
             piece, move = moves
@@ -169,7 +198,7 @@ def minimax(board, depth, is_maximising: bool, agent_player, b_time: int, alpha=
         if not poss_moves:
             return (+100000 + depth)
 
-        poss_moves = order_mvs(poss_moves)
+        poss_moves = order_mvs(board, poss_moves)
         min_eval = float("inf")
         for moves in poss_moves:
             piece, move = moves
@@ -198,7 +227,7 @@ def ids_helper(board, player, max_depth: int, b_time: float):
     if not poss_moves:
         return None, None
 
-    poss_moves = order_mvs(poss_moves)
+    poss_moves = order_mvs(board, poss_moves)
     best_piece, best_move = poss_moves[0]
 
     for curr_depth in range(max_depth):
@@ -240,36 +269,11 @@ def ids_helper(board, player, max_depth: int, b_time: float):
     return best_piece, best_move
 
 
+# <=2 captures both cases (B v W)
 def agent(board, player, var):
-    # print(f"Ply: {var[0]}")
-    # print(f"Agent nmae: {player.name}")  # REMOVE BEFORE SUBMISSION???
-    # print(f"Opponent is: {return_opponent_moves(board, player)[0].name}")
+    if var[0] <= 2:
+        game_history.clear()
+    game_history.add(get_pos_key(board))
 
     b_time = time.time() + 8
-    return ids_helper(board, player, max_depth=6, b_time=b_time)
-
-
-''' MOVED ALL THIS FROM agent() TO ids_helper()
-
-    best_score = -float("inf")
-    best_piece, best_move = None, None
-
-    poss_movies = list_legal_moves_for(board, player)
-    if poss_movies:
-        for p_piece, p_move_opt in poss_movies:
-
-            testing_board = test_move(board, p_piece, p_move_opt)
-
-            if testing_board is None:
-                continue
-
-            score = minimax(testing_board, 2, False, player, best_score)
-
-            if score > best_score:
-                best_score, best_piece, best_move = score, p_piece, p_move_opt
-
-        return best_piece, best_move
-
-    else:
-        return None, None
-'''
+    return ids_helper(board, player, max_depth=12, b_time=b_time)
