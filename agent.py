@@ -175,7 +175,73 @@ def quiescence(board, is_maximising: bool, agent_player, b_time: float, alpha: f
         if stand_pat >= alpha:
             alpha = stand_pat
 
-        # continue...
+        captures = []
+        poss_moves = get_possible_moves(board, agent_player)
+        if not poss_moves:
+            return -100000
+
+        for moves in poss_moves:
+            if moves[1].captures:
+                captures.append(moves)
+
+        if not captures:
+            return stand_pat
+
+        # don't forget to handle test_move(..) -> None
+        captures = order_mvs(board, captures)
+        max_eval = stand_pat
+        for piece, move in captures:
+            tmp_board = test_move(board, piece, move)
+            if tmp_board is None:
+                continue
+
+            next_eval = quiescence(
+                tmp_board, False, agent_player, b_time, alpha, beta, q_depth-1)
+            if next_eval is None:
+                return None
+
+            max_eval = max(max_eval, next_eval)
+            alpha = max(alpha, next_eval)
+            if beta <= alpha:
+                break
+        return max_eval
+
+    else:
+        if stand_pat <= alpha:
+            return stand_pat
+        if stand_pat < beta:
+            beta = stand_pat  # wc
+
+        poss_moves = return_opponent_moves(board, agent_player)[1]
+        if not poss_moves:
+            return 100000
+
+        captures = []
+        for moves in poss_moves:
+            if moves[1].captures:
+                captures.append(moves)
+
+        if not captures:
+            return stand_pat
+
+        captures = order_mvs(board, captures)
+        min_eval = stand_pat
+        for piece, move in captures:
+            tmp_board = test_move(board, piece, move)
+            if tmp_board is None:
+                continue
+
+            next_eval = quiescence(
+                tmp_board, True, agent_player, b_time, alpha, beta, q_depth - 1)
+            if next_eval is None:
+                return None
+
+            min_eval = min(min_eval, next_eval)
+            beta = min(beta, next_eval)
+            if beta <= alpha:
+                break
+
+        return min_eval
 
 
 def minimax(board, depth, is_maximising: bool, agent_player, b_time: int, alpha=-float("inf"), beta=float("inf")):
@@ -186,7 +252,7 @@ def minimax(board, depth, is_maximising: bool, agent_player, b_time: int, alpha=
         return 0  # avd
 
     if depth == 0:
-        return check_board(board, agent_player)
+        return quiescence(board, is_maximising, agent_player, b_time, alpha, beta)
 
     if is_maximising:
         poss_moves = get_possible_moves(board, agent_player)
